@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Button, Row, Col, Card } from "react-bootstrap";
+import { Button, Row, Col, Card, Form, Image } from "react-bootstrap";
 import { TOTAL_CAPACITY } from "./constants";
 import { SignOut, addCar, searchCar, addUserDetails, getUserDetails, resetUserDetails, removeCar, addDefaultGeneralDetails, getVacantSlot, getParkingMatrix } from './Firebase';
-
+import axios from 'axios';
 
 const Home = ({ user }) => {
 
@@ -14,7 +14,9 @@ const Home = ({ user }) => {
     const [carSearchResult, setCarSearchResult] = useState('');
     const [userDetails, setUserDetails] = useState({})
     const [numberPlate, setNumberPlate] = useState('')
-    const [mobile, setMobile] = useState('')
+    const [mobile, setMobile] = useState('');
+    const [inputFile, setInputFile] = useState(null);
+    const [ocrData, setOcrData] = useState(null)
 
     const searchAndSetCarDetails = async () => {
         let res = await searchCar(searchCarInput);
@@ -74,6 +76,29 @@ const Home = ({ user }) => {
         updateUserDetails();
     }
 
+
+
+    const callOCR = async () => {
+        let url1 = 'https://api.openalpr.com/v3/recognize?secret_key=sk_a9d2b6322785a10519aee085&recognize_vehicle=0&country=in&return_image=0&topn=10&is_cropped=0'
+        let bodyFormData = new FormData();
+        bodyFormData.append('image', inputFile);
+        axios({
+            method: "post",
+            url: url1,
+            data: bodyFormData,
+            headers: { "Content-Type": "multipart/form-data" },
+        })
+            .then((response) => {
+                //handle success
+                let results = response.data?.results[0];
+                setOcrData(results)
+            })
+            .catch((response) => {
+                //handle error
+                console.log({ response });
+            });
+    }
+
     return (
         <>
             {userDetails ?
@@ -118,6 +143,22 @@ const Home = ({ user }) => {
                                         <input value={parkRemovePositionInput} onChange={e => setParkRemovePositionInput(e.target.value)} type='number' />
                                         <Button className='m-2' onClick={() => parkRemovePositionInput && removeParkedCar(parkRemovePositionInput)} >Remove Car</Button>
                                     </Col>
+                                </Row>
+                                <Row>
+                                    <Col>
+                                        <Form.Group controlId="formFile" className="mb-3">
+                                            <Form.Label>Upload license plate for OCR</Form.Label>
+                                            <Form.Control onChange={e => setInputFile(e.target.files[0])} type="file" />
+                                        </Form.Group>
+                                        <Button onClick={() => callOCR()}>Submit</Button>
+                                    </Col>
+                                    <Col className='m-4' xs={12}>
+                                        {inputFile && <Image width={200} src={URL.createObjectURL(inputFile)} />}
+                                    </Col>
+                                    {ocrData && <>
+                                        <p>Plate Number - {ocrData?.plate}</p>
+                                        <p>Confidence - {ocrData.confidence}%</p>
+                                    </>}
                                 </Row>
                             </Card>
                         </Col>
